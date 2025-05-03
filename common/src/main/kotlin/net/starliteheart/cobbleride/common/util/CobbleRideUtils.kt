@@ -7,8 +7,16 @@ import com.cobblemon.mod.common.util.math.geometry.toRadians
 import com.cobblemon.mod.common.util.traceEntityCollision
 import com.cobblemon.mod.common.util.traceFirstEntityCollision
 import net.minecraft.core.particles.SimpleParticleType
+import net.minecraft.entity.Entity
+import net.minecraft.entity.player.PlayerEntity
+import net.minecraft.particle.DefaultParticleType
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.world.ServerWorld
+import net.minecraft.util.Identifier
+import net.minecraft.util.math.Box
+import net.minecraft.util.math.Vec3d
+import net.minecraft.world.RaycastContext
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.ClipContext
@@ -20,7 +28,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
-fun rideableResource(path: String): ResourceLocation = ResourceLocation.fromNamespaceAndPath(CobbleRideMod.MOD_ID, path)
+fun rideableResource(path: String): Identifier = Identifier(CobbleRideMod.MOD_ID, path)
 
 fun averageOfTwoRots(f1: Float, f2: Float): Float {
     val r1 = f1.toRadians().toDouble()
@@ -31,14 +39,14 @@ fun averageOfTwoRots(f1: Float, f2: Float): Float {
     return (atan2(ySum, xSum).toDegrees())
 }
 
-fun rotateVec3(offset: Vec3, angle: Float): Vec3 {
+fun rotateVec3(offset: Vec3d, angle: Float): Vec3d {
     val r = angle.toRadians()
     val x = offset.x * cos(r) - offset.z * sin(r)
     val z = offset.x * sin(r) + offset.z * cos(r)
-    return Vec3(x, offset.y, z)
+    return Vec3d(x, offset.y, z)
 }
 
-fun emitParticle(entity: Entity, particle: SimpleParticleType) {
+fun emitParticle(entity: Entity, particle: DefaultParticleType) {
     fun getRandomAngle(): Double {
         return entity.random.nextDouble() * 2 * Math.PI
     }
@@ -48,12 +56,12 @@ fun emitParticle(entity: Entity, particle: SimpleParticleType) {
     val particleXSpeed = cos(particleAngle) * particleSpeed
     val particleYSpeed = sin(particleAngle) * particleSpeed
 
-    if (entity.level() is ServerLevel) {
-        (entity.level() as ServerLevel).sendParticles(
+    if (entity.world is ServerWorld) {
+        (entity.world as ServerWorld).spawnParticles(
             particle,
-            entity.position().x + cos(getRandomAngle()) * entity.boundingBox.xsize,
+            entity.pos.x + cos(getRandomAngle()) * entity.boundingBox.maxX,
             entity.boundingBox.maxY,
-            entity.position().z + cos(getRandomAngle()) * entity.boundingBox.zsize,
+            entity.pos.z + cos(getRandomAngle()) * entity.boundingBox.maxZ,
             1,     //Amount?
             particleXSpeed, 0.5, particleYSpeed,
             1.0   //Scale?
@@ -61,15 +69,15 @@ fun emitParticle(entity: Entity, particle: SimpleParticleType) {
     }
 }
 
-fun <T : Entity> Player.traceEntityCollisionAndReturnRider(
+fun <T : Entity> PlayerEntity.traceEntityCollisionAndReturnRider(
     maxDistance: Float = 10F,
     stepDistance: Float = 0.05F,
     entityClass: Class<T>,
     ignoreEntity: T? = null,
-    collideBlock: ClipContext.Fluid?
+    collideBlock: RaycastContext.FluidHandling?
 ): T? {
-    val entity = this.traceFirstEntityCollision(maxDistance, stepDistance, entityClass, ignoreEntity, collideBlock)
-    if (entity != null && entity.isVehicle && entity !is Player && entity !is NPCEntity) {
+    val entity = this.traceFirstEntityCollision(maxDistance, stepDistance, entityClass, ignoreEntity)
+    if (entity != null && entity.isVehicle && entity !is PlayerEntity && entity !is NPCEntity) {
         val list =
             if (this.vehicle != null) listOf(ignoreEntity, this.vehicle, entity) else listOf(ignoreEntity, entity)
         val nextClosest = traceEntityCollisionWithIgnoreList(
@@ -82,39 +90,39 @@ fun <T : Entity> Player.traceEntityCollisionAndReturnRider(
     return entity
 }
 
-fun <T : Entity> Player.resolveTraceEntityCollision(
+fun <T : Entity> PlayerEntity.resolveTraceEntityCollision(
     maxDistance: Float = 10F,
     stepDistance: Float = 0.05F,
     entityClass: Class<T>,
     ignoreEntity: T? = null,
-    collideBlock: ClipContext.Fluid?
+    collideBlock: RaycastContext.FluidHandling?
 ): EntityTraceResult<T>? {
     return if (this.vehicle != null) {
         val list = listOf(ignoreEntity, this.vehicle)
         traceEntityCollisionWithIgnoreList(maxDistance, stepDistance, entityClass, list, collideBlock)
     } else {
-        traceEntityCollision(maxDistance, stepDistance, entityClass, ignoreEntity, collideBlock)
+        traceEntityCollision(maxDistance, stepDistance, entityClass, ignoreEntity)
     }
 }
 
 /*
     Copied from Cobblemon's PlayerExtensions, modified to allow for multiple ignored entities
  */
-fun <T : Entity> Player.traceEntityCollisionWithIgnoreList(
+fun <T : Entity> PlayerEntity.traceEntityCollisionWithIgnoreList(
     maxDistance: Float = 10F,
     stepDistance: Float = 0.05F,
     entityClass: Class<T>,
     ignoreEntities: List<Entity?> = listOf(),
-    collideBlock: ClipContext.Fluid?
+    collideBlock: RaycastContext.FluidHandling?
 ): EntityTraceResult<T>? {
     var step = stepDistance
     val startPos = eyePosition
     val direction = lookAngle
-    val maxDistanceVector = Vec3(1.0, 1.0, 1.0).scale(maxDistance.toDouble())
+    val maxDistanceVector = Vec3d(1.0, 1.0, 1.0).multiply(maxDistance.toDouble())
 
-    val entities = level().getEntities(
+    val entities = world.getOtherEntities(
         null,
-        AABB(startPos.subtract(maxDistanceVector), startPos.add(maxDistanceVector))
+        Box(startPos.subtract(maxDistanceVector), startPos.add(maxDistanceVector))
     ) { entityClass.isInstance(it) }
 
     while (step <= maxDistance) {
@@ -126,11 +134,11 @@ fun <T : Entity> Player.traceEntityCollisionWithIgnoreList(
         }
 
         if (collided.isNotEmpty()) {
-            if (collideBlock != null && level().clip(
-                    ClipContext(
+            if (collideBlock != null && world.clip(
+                    RaycastContext(
                         startPos,
                         location,
-                        ClipContext.Block.COLLIDER,
+                        RaycastContext.ShapeType.COLLIDER,
                         collideBlock,
                         this
                     )

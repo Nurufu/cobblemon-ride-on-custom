@@ -4,10 +4,11 @@ plugins {
 
 architectury {
     platformSetupLoomIde()
-    neoForge()
+    forge()
 }
 
 loom {
+    forge{}
     enableTransitiveAccessWideners.set(true)
     silentMojangMappingsLicense()
 }
@@ -27,19 +28,19 @@ dependencies {
     implementation(project(":common", configuration = "namedElements")) {
         isTransitive = false
     }
-    "developmentNeoForge"(project(":common", configuration = "namedElements")) {
+    "developmentForge"(project(":common", configuration = "namedElements")) {
         isTransitive = false
     }
-    shadowBundle(project(":common", configuration = "transformProductionNeoForge")) {
+    shadowBundle(project(":common", configuration = "transformProductionForge")) {
         isTransitive = false
     }
 
-    neoForge("net.neoforged:neoforge:${rootProject.property("neoforge_version")}")
+    forge("net.forge:forge:${rootProject.property("forge_version")}")
 
-    modImplementation("com.cobblemon:neoforge:${rootProject.property("cobblemon_version")}")
+    modImplementation("com.cobblemon:forge:${rootProject.property("cobblemon_version")}")
     //Needed for cobblemon
     implementation("thedarkcolour:kotlinforforge-neoforge:${rootProject.property("kotlinforforge_version")}") {
-        exclude("net.neoforged.fancymodloader", "loader")
+        exclude("net.forge.fancymodloader", "loader")
     }
 
     modCompileOnly("local.com.swordend:pet-your-cobblemon:1.3.3")
@@ -53,7 +54,7 @@ tasks {
         inputs.property("mod_version", project.version)
         inputs.property("minecraft_version", rootProject.property("minecraft_version"))
         inputs.property("cobblemon_version", rootProject.property("cobblemon_version"))
-        filesMatching("META-INF/neoforge.mods.toml") {
+        filesMatching("META-INF/forge.mods.toml") {
             expand(
                 "mod_version" to project.version,
                 "minecraft_version" to rootProject.property("minecraft_version"),
