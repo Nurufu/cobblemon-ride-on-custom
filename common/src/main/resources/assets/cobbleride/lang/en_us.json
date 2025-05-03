@@ -1,0 +1,9 @@
+{
+  "cobblemon.ui.pokedex.region.rideable": "Rideable",
+  "cobbleride.mount.onboard": "Press %1$s + %2$s while %3$s is Selected to Dismount",
+  "cobbleride.ui.mount.evolve": "You can't evolve %1$s while it's being ridden! Remove its passengers and try again.",
+  "key.cobbleride.categories.cobbleride": "Cobblemon: Ride On!",
+  "key.cobbleride.ascend": "Ascend / Fly",
+  "key.cobbleride.descend": "Descend / Dive",
+  "key.cobbleride.sprint": "Sprint"
+}

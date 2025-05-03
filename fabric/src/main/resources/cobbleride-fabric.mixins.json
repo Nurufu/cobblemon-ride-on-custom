@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "net.starliteheart.cobbleride.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "client": [
+    "client.LivingEntityRendererMixin"
+  ],
+  "mixins": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

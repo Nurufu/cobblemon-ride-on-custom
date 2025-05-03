@@ -1,0 +1,20 @@
+{
+  "name": "Custom",
+  "offsets": {
+    "DEFAULT": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "WALKING": {
+      "x": 0,
+      "y": 0.1,
+      "z": 0.5
+    }
+  },
+  "baseSpeedModifier": 1.0,
+  "landSpeedModifier": 1.0,
+  "waterSpeedModifier": 0.5,
+  "airSpeedModifier": 1.0,
+  "forms": []
+}

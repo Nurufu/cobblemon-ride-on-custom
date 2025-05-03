@@ -1,0 +1,35 @@
+{
+  "required": true,
+  "package": "net.starliteheart.cobbleride.common.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "client": [
+    "accessor.KeyMappingAccessor",
+    "accessor.SpawnExtraDataEntityPacketAccessor",
+    "client.ClientPacketListenerMixin",
+    "client.GuiMixin",
+    "client.LocalPlayerMixin",
+    "client.PartySendBindingMixin",
+    "client.PCGUIMixin",
+    "client.PokemonInfoWidgetMixin",
+    "client.SummaryMixin"
+  ],
+  "mixins": [
+    "CobblemonNetworkMixin",
+    "LivingEntityMixin",
+    "PlayerExtensionsMixin",
+    "PlayerMixin",
+    "PokemonBattleMixin",
+    "PokemonMixin",
+    "PokemonServerDelegateMixin",
+    "RequestInteractionsHandlerMixin",
+    "SendOutPokemonHandlerMixin",
+    "ServerEvolutionControllerMixin",
+    "SpectateBattleHandlerMixin",
+    "SwitchInstructionMixin",
+    "accessor.LivingEntityAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

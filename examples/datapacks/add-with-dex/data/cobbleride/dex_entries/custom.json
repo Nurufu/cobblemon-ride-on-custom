@@ -1,0 +1,15 @@
+{
+  "id": "example:custom",
+  "speciesId": "cobbleride:custom",
+  "displayAspects": [],
+  "conditionAspects": [],
+  "forms": [
+    {
+      "displayForm": "Normal",
+      "unlockForms": [
+        "Normal"
+      ]
+    }
+  ],
+  "variations": []
+}
