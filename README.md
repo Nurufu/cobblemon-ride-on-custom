@@ -1,3 +1,8 @@
+A fork of open-source Pokémon mod for Minecraft Java Edition, written in Kotlin Fabric. Primarily aimed at back-porting features from the main repo found [here](https://gitlab.com/StarliteHeart/cobblemon-ride-on) to Minecraft Java version 1.20.1.
+
+Original README below:
+
+
 # Cobblemon: Ride On!
 
 ***
