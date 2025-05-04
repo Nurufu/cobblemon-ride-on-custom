@@ -3,18 +3,15 @@ package net.starliteheart.cobbleride.common.pokemon
 import com.cobblemon.mod.common.api.data.ShowdownIdentifiable
 import com.cobblemon.mod.common.api.net.Decodable
 import com.cobblemon.mod.common.api.net.Encodable
-import com.cobblemon.mod.common.util.readEnumConstant
-import com.cobblemon.mod.common.util.readString
-import com.cobblemon.mod.common.util.writeEnumConstant
-import com.cobblemon.mod.common.util.writeString
-import net.minecraft.network.RegistryFriendlyByteBuf
-import net.minecraft.world.phys.Vec3
+import com.cobblemon.mod.common.util.*
+import net.minecraft.network.PacketByteBuf
+import net.minecraft.util.math.Vec3d
 import java.util.*
 
 class RideableFormData(
     var name: String = "Normal",
     var enabled: Boolean = true,
-    var offsets: EnumMap<RiderOffsetType, Vec3> = EnumMap(RiderOffsetType::class.java),
+    var offsets: EnumMap<RiderOffsetType, Vec3d> = EnumMap(RiderOffsetType::class.java),
     var shouldRiderSit: Boolean = true,
     var baseSpeedModifier: Float = 1.0F,
     var landSpeedModifier: Float = 1.0F,
@@ -33,10 +30,10 @@ class RideableFormData(
 
     override fun hashCode(): Int = this.showdownId().hashCode()
 
-    override fun encode(buffer: RegistryFriendlyByteBuf) {
+    override fun encode(buffer: PacketByteBuf) {
         buffer.writeString(this.name)
         buffer.writeBoolean(this.enabled)
-        buffer.writeMap(this.offsets, { _, k -> buffer.writeEnumConstant(k) }, { _, v -> buffer.writeVec3(v) })
+        buffer.writeMap(this.offsets, { _, k -> buffer.writeEnumConstant(k) }, { _, v -> buffer.writeVec3d(v) })
         buffer.writeBoolean(this.shouldRiderSit)
         buffer.writeFloat(this.baseSpeedModifier)
         buffer.writeFloat(this.landSpeedModifier)
@@ -44,13 +41,13 @@ class RideableFormData(
         buffer.writeFloat(this.airSpeedModifier)
     }
 
-    override fun decode(buffer: RegistryFriendlyByteBuf) {
+    override fun decode(buffer: PacketByteBuf) {
         this.name = buffer.readString()
         this.enabled = buffer.readBoolean()
         this.offsets.clear()
         this.offsets += buffer.readMap(
             { _ -> buffer.readEnumConstant(RiderOffsetType::class.java) },
-            { _ -> buffer.readVec3() })
+            { _ -> buffer.readVec3d() })
         this.shouldRiderSit = buffer.readBoolean()
         this.baseSpeedModifier = buffer.readFloat()
         this.landSpeedModifier = buffer.readFloat()

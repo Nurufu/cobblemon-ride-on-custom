@@ -1,59 +1,46 @@
 package net.starliteheart.cobbleride.common.entity.pokemon
 
 import com.cobblemon.mod.common.api.pokemon.status.Statuses
-import com.cobblemon.mod.common.entity.PlatformType
 import com.cobblemon.mod.common.entity.PoseType
-import com.cobblemon.mod.common.entity.npc.NPCEntity
 import com.cobblemon.mod.common.entity.pokemon.PokemonBehaviourFlag
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.pokemon.Pokemon
-import com.cobblemon.mod.common.util.DataKeys
-import com.cobblemon.mod.common.util.getIsSubmerged
 import com.cobblemon.mod.common.util.math.geometry.toRadians
 import com.google.common.collect.UnmodifiableIterator
-import net.minecraft.core.BlockPos.MutableBlockPos
-import net.minecraft.core.Direction
-import net.minecraft.core.particles.ParticleTypes
-import net.minecraft.network.protocol.Packet
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket
-import net.minecraft.network.protocol.game.ClientGamePacketListener
-import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
-import net.minecraft.server.level.ServerEntity
-import net.minecraft.tags.FluidTags
-import net.minecraft.world.InteractionHand
-import net.minecraft.world.InteractionResult
-import net.minecraft.world.damagesource.DamageSource
-import net.minecraft.world.effect.MobEffectInstance
-import net.minecraft.world.effect.MobEffects
+import net.minecraft.entity.*
+import net.minecraft.entity.attribute.EntityAttributes
+import net.minecraft.entity.damage.DamageSource
+import net.minecraft.entity.effect.StatusEffectInstance
+import net.minecraft.entity.effect.StatusEffects
+import net.minecraft.entity.player.PlayerEntity
+import net.minecraft.fluid.FluidState
+import net.minecraft.particle.ParticleTypes
+import net.minecraft.registry.tag.FluidTags
+import net.minecraft.util.ActionResult
+import net.minecraft.util.Arm
+import net.minecraft.util.Hand
+import net.minecraft.util.math.*
+import net.minecraft.util.math.BlockPos.Mutable
+import net.minecraft.world.World
 import net.minecraft.world.entity.*
-import net.minecraft.world.entity.ai.attributes.Attributes
-import net.minecraft.world.entity.player.Player
-import net.minecraft.world.entity.vehicle.DismountHelper
-import net.minecraft.world.level.Level
-import net.minecraft.world.level.material.FluidState
-import net.minecraft.world.phys.Vec2
-import net.minecraft.world.phys.Vec3
 import net.starliteheart.cobbleride.common.CobbleRideMod
 import net.starliteheart.cobbleride.common.api.pokemon.RideablePokemonSpecies
 import net.starliteheart.cobbleride.common.client.settings.ClientSettings
 import net.starliteheart.cobbleride.common.client.settings.ServerSettings
 import net.starliteheart.cobbleride.common.mixin.accessor.LivingEntityAccessor
 import net.starliteheart.cobbleride.common.net.messages.client.pokemon.ai.ClientMoveBehaviour
-import net.starliteheart.cobbleride.common.net.messages.client.spawn.SpawnRidePokemonPacket
 import net.starliteheart.cobbleride.common.net.messages.server.pokemon.update.SetRidePokemonExhaustPacket
 import net.starliteheart.cobbleride.common.pokemon.RideableFormData
-import net.starliteheart.cobbleride.common.pokemon.RiderOffsetType
 import net.starliteheart.cobbleride.common.pokemon.RiderOffsetType.*
 import net.starliteheart.cobbleride.common.util.averageOfTwoRots
 import net.starliteheart.cobbleride.common.util.emitParticle
-import net.starliteheart.cobbleride.common.util.rotateVec3
 import kotlin.math.max
 import kotlin.math.min
 
-class RideablePokemonEntity : PokemonEntity, PlayerRideable {
-    constructor(world: Level) : super(world)
+class RideablePokemonEntity : PokemonEntity, Mount {
+    constructor(world: World) : super(world)
     constructor(
-        world: Level,
+        world: World,
         pokemon: Pokemon
     ) : super(world, pokemon)
 
@@ -67,7 +54,7 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
     private val config: ServerSettings
         get() = ServerSettings
 
-    private var lastRiderPosition: Vec3? = null
+    private var lastRiderPosition: Vec3d? = null
     private var shouldSinkInWater = false
     private var sprintCooldownScale = 0F
     var sprintStaminaScale = 0F
@@ -80,7 +67,7 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
         set(value) {
             if (field != value) {
                 field = value
-                if (level().isClientSide) SetRidePokemonExhaustPacket(this.id, value).sendToServer()
+                if (world.isClient()) SetRidePokemonExhaustPacket(this.uuid, value).sendToServer()
             }
         }
 
@@ -89,36 +76,35 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
     var isRideDescending: Boolean = false
     var isRideSprinting: Boolean = false
 
-    private fun canBeRiddenBy(player: Player): Boolean =
-        rideData != null && rideData!!.enabled && (canBeControlledBy(player) || !this.isBattling) && !this.isEvolving
-                && this.owner !is NPCEntity && isAllowedDimension()
+    private fun canBeRiddenBy(player: PlayerEntity): Boolean =
+        rideData != null && rideData!!.enabled && (canBeControlledBy(player) || !this.isBattling) && isAllowedDimension()
 
     private fun isAllowedDimension() = !config.restrictions.blacklistedDimensions.contains(
-        level().dimension().location().toString()
+        world.dimension.toString()
     )
 
     override fun isImmobile(): Boolean =
         pokemon.status?.status == Statuses.SLEEP || super.isImmobile()
 
-    override fun isOwnedBy(livingEntity: LivingEntity): Boolean {
-        return this.ownerUUID == livingEntity.uuid
+    override fun isOwner(livingEntity: LivingEntity): Boolean {
+        return this.ownerUuid == livingEntity.uuid
     }
 
-    override fun canSitOnShoulder(): Boolean =
-        passengers.isEmpty() && super.canSitOnShoulder()
+    override fun isReadyToSitOnPlayer(): Boolean =
+        !hasPassengers() && super.isReadyToSitOnPlayer()
 
-    override fun canStandOnFluid(state: FluidState): Boolean =
+    override fun canWalkOnFluid(state: FluidState): Boolean =
         !shouldSinkInWater &&
-                if (state.`is`(FluidTags.WATER) && !isEyeInFluid(FluidTags.WATER)) {
+                if (state.isIn(FluidTags.WATER) && !isSubmergedIn(FluidTags.WATER)) {
                     moveBehaviour.swim.canWalkOnWater
-                } else if (state.`is`(FluidTags.LAVA) && !isEyeInFluid(FluidTags.LAVA)) {
+                } else if (state.isIn(FluidTags.LAVA) && !isSubmergedIn(FluidTags.LAVA)) {
                     moveBehaviour.swim.canWalkOnLava
                 } else {
                     false
                 }
 
     private fun isOnWaterSurface(): Boolean =
-        this.isInWater && !this.isUnderWater
+        this.isTouchingWater && !this.isSubmergedInWater
 
     private fun isAbleToDive(): Boolean =
         moveBehaviour.swim.canSwimInWater && moveBehaviour.swim.canBreatheUnderwater
@@ -129,18 +115,19 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
     private fun isInPoseOfType(poseType: PoseType): Boolean =
         this.getCurrentPoseType() == poseType
 
-    override fun getPassengerAttachmentPoint(entity: Entity, dimensions: EntityDimensions, f: Float): Vec3 {
+    /* Doesn't exist in 1.20 :(
+    override fun getPassengerAttachmentPoint(entity: Entity, dimensions: EntityDimensions, f: Float): Vec3d {
         val offsets = rideData?.offsets ?: hashMapOf()
-        var offset = offsets[DEFAULT] ?: Vec3.ZERO
+        var offset = offsets[DEFAULT] ?: Vec3d.ZERO
         fun hasOffset(name: RiderOffsetType): Boolean = offsets[name] != null
 
         if (isFlying() && isInPoseOfType(PoseType.HOVER) && hasOffset(HOVERING)) {
             offsets[HOVERING]?.let { offset = offset.add(it) }
         } else if (isFlying() && hasOffset(FLYING)) {
             offsets[FLYING]?.let { offset = offset.add(it) }
-        } else if (isUnderWater && isInPoseOfType(PoseType.FLOAT) && hasOffset(SUSPENDED)) {
+        } else if (isSubmergedInWater && isInPoseOfType(PoseType.FLOAT) && hasOffset(SUSPENDED)) {
             offsets[SUSPENDED]?.let { offset = offset.add(it) }
-        } else if (isUnderWater && hasOffset(DIVING)) {
+        } else if (isSubmergedInWater && hasOffset(DIVING)) {
             offsets[DIVING]?.let { offset = offset.add(it) }
         } else if (isOnWaterSurface() && isInPoseOfType(PoseType.STAND) && hasOffset(FLOATING)) {
             offsets[FLOATING]?.let { offset = offset.add(it) }
@@ -164,53 +151,53 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
         }
         lastRiderPosition = attachmentPoint
 
-        val rotatedOffset = rotateVec3(attachmentPoint, yRotO)
+        val rotatedOffset = rotateVec3d(attachmentPoint, yRotO)
 
         return rotatedOffset
-    }
+    }*/
 
-    override fun getDismountLocationForPassenger(entity: LivingEntity): Vec3 {
-        val vec3 = getCollisionHorizontalEscapeVector(
-            this.bbWidth.toDouble(), entity.bbWidth.toDouble(),
-            this.yRot + (if (entity.mainArm == HumanoidArm.RIGHT) 90.0f else -90.0f)
+    override fun updatePassengerForDismount(entity: LivingEntity): Vec3d {
+        val Vec3d = getPassengerDismountOffset(
+            this.width.toDouble(), entity.width.toDouble(),
+            (this.y + (if (entity.mainArm == Arm.RIGHT) 90.0f else -90.0f)).toFloat()
         )
-        val vec31: Vec3? = this.getDismountLocationInDirection(vec3, entity)
-        if (vec31 != null) {
-            return vec31
+        val Vec3d1: Vec3d? = this.getDismountLocationInDirection(Vec3d, entity)
+        if (Vec3d1 != null) {
+            return Vec3d1
         } else {
-            val vec32 = getCollisionHorizontalEscapeVector(
-                this.bbWidth.toDouble(), entity.bbWidth.toDouble(),
-                this.yRot + (if (entity.mainArm == HumanoidArm.LEFT) 90.0f else -90.0f)
+            val Vec3d2 = getPassengerDismountOffset(
+                this.width.toDouble(), entity.width.toDouble(),
+                (this.y + (if (entity.mainArm == Arm.LEFT) 90.0f else -90.0f)).toFloat()
             )
-            val vec33: Vec3? = this.getDismountLocationInDirection(vec32, entity)
-            return vec33 ?: this.position()
+            val Vec3d3: Vec3d? = this.getDismountLocationInDirection(Vec3d2, entity)
+            return Vec3d3 ?: this.pos
         }
     }
 
-    private fun getDismountLocationInDirection(arg: Vec3, arg2: LivingEntity): Vec3? {
+    private fun getDismountLocationInDirection(arg: Vec3d, arg2: LivingEntity): Vec3d? {
         val d0 = this.x + arg.x
         val d1 = this.boundingBox.minY
         val d2 = this.z + arg.z
-        val mutableBlockPos = MutableBlockPos()
-        val var10: UnmodifiableIterator<*> = arg2.dismountPoses.iterator()
+        val mutableBlockPos = Mutable()
+        val var10: UnmodifiableIterator<*> = arg2.poses.iterator()
 
         while (var10.hasNext()) {
-            val pose = var10.next() as Pose
+            val pose = var10.next() as EntityPose
             mutableBlockPos[d0, d1] = d2
             val d3 = this.boundingBox.maxY + 0.75
 
             while (true) {
-                val d4 = level().getBlockFloorHeight(mutableBlockPos)
+                val d4 = world.getDismountHeight(mutableBlockPos)
                 if (mutableBlockPos.y.toDouble() + d4 > d3) {
                     break
                 }
 
-                if (DismountHelper.isBlockFloorValid(d4)) {
-                    val aabb = arg2.getLocalBoundsForPose(pose)
-                    val vec3 = Vec3(d0, mutableBlockPos.y.toDouble() + d4, d2)
-                    if (DismountHelper.canDismountTo(this.level(), arg2, aabb.move(vec3))) {
+                if (Dismounting.canDismountInBlock(d4)) {
+                    val box = arg2.getBoundingBox(pose)
+                    val Vec3d = Vec3d(d0, mutableBlockPos.y.toDouble() + d4, d2)
+                    if (Dismounting.canPlaceEntityAt(this.world, arg2, box.offset(Vec3d))) {
                         arg2.pose = pose
-                        return vec3
+                        return Vec3d
                     }
                 }
 
@@ -233,41 +220,41 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
     }
 
     private fun canBeControlledBy(entity: LivingEntity): Boolean =
-        entity is Player && this.isOwnedBy(entity)
+        entity is PlayerEntity && this.isOwner(entity)
 
-    override fun causeFallDamage(fallDistance: Float, damageMultiplier: Float, damageSource: DamageSource): Boolean {
-        val flag = super.causeFallDamage(fallDistance, damageMultiplier, damageSource)
-        if (flag && this.isVehicle) {
-            val i = this.calculateFallDamage(fallDistance, damageMultiplier)
-            val var5: Iterator<*> = this.indirectPassengers.iterator()
+    override fun handleFallDamage(fallDistance: Float, damageMultiplier: Float, damageSource: DamageSource?): Boolean {
+        val flag = super.handleFallDamage(fallDistance, damageMultiplier, damageSource)
+        if (flag && this.hasPassengers()) {
+            val i = this.computeFallDamage(fallDistance, damageMultiplier)
+            val var5: Iterator<*> = this.passengersDeep.iterator()
             while (var5.hasNext()) {
                 val entity = var5.next() as Entity
-                entity.hurt(damageSource, i.toFloat())
+                entity.damage(damageSource, i.toFloat())
             }
         }
         return flag
     }
 
-    private fun doPlayerRide(player: Player) {
-        player.yRot = yRot
-        player.xRot = xRot
-        if (!level().isClientSide) {
+    private fun doPlayerRide(player: PlayerEntity) {
+        player.yaw = yaw
+        player.pitch = pitch
+        if (!world.isClient()) {
             player.startRiding(this)
         }
     }
 
-    override fun mobInteract(player: Player, hand: InteractionHand): InteractionResult {
-        val result = super.mobInteract(player, hand)
-        if (result == InteractionResult.PASS && CobbleRideMod.implementation.canInteractToMount(player, hand, this)) {
-            if (!this.isVehicle && this.canBeRiddenBy(player)) {
+    override fun interactMob(player: PlayerEntity, hand: Hand): ActionResult {
+        val result = super.interactMob(player, hand)
+        if (result == ActionResult.PASS && CobbleRideMod.implementation.canInteractToMount(player, hand, this)) {
+            if (!this.hasPassengers() && this.canBeRiddenBy(player)) {
                 this.doPlayerRide(player)
-                return InteractionResult.sidedSuccess(level().isClientSide)
-            } else if (this.isVehicle && this.isOwnedBy(player)
-                && this.passengers.none { it.uuid == player.uuid }
+                return ActionResult.success(world.isClient())
+            } else if (this.hasPassengers() && this.isOwner(player)
+                && this.passengerList.none { it.uuid == player.uuid }
             ) {
-                if (!level().isClientSide)
-                    this.ejectPassengers()
-                return InteractionResult.sidedSuccess(level().isClientSide)
+                if (!world.isClient())
+                    this.removeAllPassengers()
+                return ActionResult.success(world.isClient)
             }
         }
         return result
@@ -275,50 +262,50 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
 
     fun shouldRiderSit(): Boolean = rideData?.shouldRiderSit ?: true
 
-    override fun tickRidden(player: Player, vec3: Vec3) {
-        super.tickRidden(player, vec3)
+    override fun tickControlled(player: PlayerEntity, vec3d: Vec3d) {
+        super.tickControlled(player, vec3d)
         val vec2 = this.getRiddenRotation(player)
 
         // Some lerping applied, to provide more realistic "weight" to rotation
-        this.setRot(averageOfTwoRots(vec2.y, this.yRotO), averageOfTwoRots(vec2.x, this.xRotO))
-        this.yHeadRot = vec2.y
-        this.yBodyRot = averageOfTwoRots(this.yHeadRot, this.yRotO)
-        this.yRotO = averageOfTwoRots(this.yBodyRot, this.yRotO)
+        this.setRotation(averageOfTwoRots(vec2.y, this.yaw), averageOfTwoRots(vec2.x, this.pitch))
+        this.headYaw = vec2.y
+        this.bodyYaw = averageOfTwoRots(this.headYaw, this.yaw)
+        this.yaw = averageOfTwoRots(this.bodyYaw, this.yaw)
 
         if (!shouldRiderSit()) {
-            player.yBodyRot = this.yBodyRot
-            player.yRotO = this.yRotO
-            player.calculateEntityAnimation(false)
+            player.bodyYaw = this.bodyYaw
+            player.yaw = this.yaw
+            player.updateLimbs(false)
         }
 
         // If shared water breathing is allowed, check mount and apply if it has the effect
         if (moveBehaviour.swim.canBreatheUnderwater && config.general.isWaterBreathingShared) {
-            player.addEffect(MobEffectInstance(MobEffects.WATER_BREATHING, 60, 0, false, false, false))
+            player.addStatusEffect(StatusEffectInstance(StatusEffects.WATER_BREATHING, 60, 0, false, false, false))
         }
 
-        if (this.isControlledByLocalInstance) {
+        if (this.isLogicalSideForUpdatingMovement) {
             // Carry over logic from PokemonMoveControl, where Pokemon that can swim will tread water
             if ((this.isInLava && !moveBehaviour.swim.canBreatheUnderlava) ||
                 (((moveBehaviour.swim.canSwimInWater && !moveBehaviour.swim.canBreatheUnderwater) ||
                         (isAbleToDive() && isOnWaterSurface() && !isRideDescending))
-                        && this.isInWater && this.getFluidHeight(
+                        && this.isTouchingWater && this.getFluidHeight(
                     FluidTags.WATER
-                ) > this.fluidJumpThreshold)
+                ) > this.swimHeight)
             ) {
                 if (this.random.nextFloat() < 0.8f) {
-                    this.jumpControl.jump()
+                    this.jumpControl.setActive()
                 }
             }
 
             // When descending, disable water walking for diving Pokemon
             shouldSinkInWater = isAbleToDive() && (isRideDescending || (isOnWaterSurface() && this.getFluidHeight(
                 FluidTags.WATER
-            ) > this.fluidJumpThreshold))
+            ) > this.swimHeight))
 
             // Sprint control logic
-            val shouldBeSprinting = canSprint && (isInWater || isFlying() || config.sprinting.canSprintOnLand)
-                    && (!isInWater || config.sprinting.canSprintInWater) && (!isFlying() || config.sprinting.canSprintInAir)
-                    && isRideSprinting && vec3.horizontalDistance() > 0 && (!canExhaust || (!isExhausted && sprintStaminaScale > 0F))
+            val shouldBeSprinting = canSprint && (isTouchingWater || isFlying() || config.sprinting.canSprintOnLand)
+                    && (!isTouchingWater || config.sprinting.canSprintInWater) && (!isFlying() || config.sprinting.canSprintInAir)
+                    /*&& isRideSprinting && Vec3d.horizontalLength() > 0*/ && (!canExhaust || (!isExhausted && sprintStaminaScale > 0F))
             if (shouldBeSprinting) {
                 sprintCooldownScale = 0F
                 if (canExhaust) {
@@ -333,7 +320,7 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
         }
 
         // If the Pokemon is flying and can land, clear the flying state
-        if (this.isFlying() && (this.onGround() || isInWater) && this.couldStopFlying()) {
+        if (this.isFlying() && (this.isOnGround || isTouchingWater) && this.couldStopFlying()) {
             this.setBehaviourFlag(PokemonBehaviourFlag.FLYING, false)
         }
 
@@ -341,8 +328,8 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
         if (isRideAscending) {
             if (isAbleToFly() && !this.isFlying() && !getIsSubmerged()) {
                 this.setBehaviourFlag(PokemonBehaviourFlag.FLYING, true)
-            } else if (!isAbleToFly() && (this.onGround() || (isInLiquid && !isUnderWater))) {
-                this.jumpControl.jump()
+            } else if (!isAbleToFly() && (this.isOnGround || (isTouchingWater && !isSubmergedInWater))) {
+                this.jumpControl.setActive()
             }
         }
 
@@ -352,32 +339,32 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
 
     override fun tick() {
         super.tick()
-
-        if (isBattling) {
-            // Copying this from Cobblemon to fix a few bugs related to rafts where they don't get the behaviour on the client
-            platform = if (ticksLived > 5
-                && ownerUUID != null
-                && isInWater && !isUnderWater
-                && !exposedForm.behaviour.moving.swim.canBreatheUnderwater && !exposedForm.behaviour.moving.swim.canWalkOnWater
-                && !isFlying()
-            ) {
-                PlatformType.getPlatformTypeForPokemon((exposedForm))
-            } else {
-                PlatformType.NONE
-            }
-        } else {
-            // Battle clone destruction
-            if (this.beamMode == 0 && this.isBattleClone()) {
-                discard()
-                return
-            }
-            platform = PlatformType.NONE
-
-        }
+//        Don't have rafts, uneeded I think?
+//        if (isBattling) {
+//            // Copying this from Cobblemon to fix a few bugs related to rafts where they don't get the behaviour on the client
+//            platform = if (ticksLived > 5
+//                && ownerUUID != null
+//                && isInWater && !isUnderWater
+//                && !exposedForm.behaviour.moving.swim.canBreatheUnderwater && !exposedForm.behaviour.moving.swim.canWalkOnWater
+//                && !isFlying()
+//            ) {
+//                PlatformType.getPlatformTypeForPokemon((exposedForm))
+//            } else {
+//                PlatformType.NONE
+//            }
+//        } else {
+//            // Battle clone destruction
+//            if (this.beamMode == 0 && this.isBattleClone()) {
+//                discard()
+//                return
+//            }
+//            platform = PlatformType.NONE
+//
+//        }
 
         // Resolve stamina recovery and exhaustion effects
         if (canSprint && canExhaust) {
-            if (level().isClientSide) {
+            if (world.isClient()) {
                 if (!this.isSprinting && sprintStaminaScale < 1F) {
                     if (config.sprinting.recoveryDelay > 0 && sprintCooldownScale < 1F) {
                         sprintCooldownScale = min(sprintCooldownScale + (1F / config.sprinting.recoveryDelay), 1F)
@@ -392,37 +379,37 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
             }
 
             // Emit particles if exhausted, every X ticks
-            if (isExhausted && tickCount % 4 == 0) {
+            if (isExhausted && age % 4 == 0) {
                 emitParticle(this, ParticleTypes.FALLING_WATER)
             }
         }
     }
 
-    private fun getRiddenRotation(entity: LivingEntity): Vec2 {
-        return Vec2(entity.xRot * 0.5f, entity.yRot)
+    private fun getRiddenRotation(entity: LivingEntity): Vec2f {
+        return Vec2f(entity.pitch * 0.5f, entity.yaw)
     }
 
-    override fun getRiddenInput(player: Player, v: Vec3): Vec3 {
+    override fun getControlledMovementInput(player: PlayerEntity, v: Vec3d): Vec3d {
         if (isImmobile) {
-            return Vec3.ZERO
+            return Vec3d.ZERO
         }
 
-        val xxa = player.xxa * 0.5f
-        var zza = player.zza
+        val xxa = player.sidewaysSpeed * 0.5f
+        var zza = player.forwardSpeed
         if (zza <= 0.0f) {
             zza *= 0.25f
         }
-        var vec3 = Vec3(xxa.toDouble(), 0.0, zza.toDouble())
+        var Vec3d = Vec3d(xxa.toDouble(), 0.0, zza.toDouble())
 
         // We rotate the vector here to align with the player's line of view if camera navigation is enabled.
-        if (ClientSettings.useCameraNavigation && vec3.length() > 0) {
-            if ((isInWater && isAbleToDive() && (getIsSubmerged() || isRideDescending)) || isInLava || isFlying()) {
-                vec3 = vec3.xRot((-player.xRot.toRadians()))
+        if (ClientSettings.useCameraNavigation && Vec3d.length() > 0) {
+            if ((isTouchingWater && isAbleToDive() && (getIsSubmerged() || isRideDescending)) || isInLava || isFlying()) {
+                Vec3d = Vec3d.rotateX((-player.pitch.toRadians()))
             }
         }
 
         // Adjust vertical movement if we're holding a key, regardless of navigation mode
-        if ((isInWater && isAbleToDive()) || isInLava || isFlying()) {
+        if ((isTouchingWater && isAbleToDive()) || isInLava || isFlying()) {
             val verticalSpeed = (
                     if (isFlying()) {
                         config.general.airVerticalClimbSpeed
@@ -431,16 +418,16 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
                     }
                     ).toFloat()
             if (isRideAscending && !isRideDescending) {
-                vec3 = vec3.add(0.0, verticalSpeed.toDouble(), 0.0)
+                Vec3d = Vec3d.add(0.0, verticalSpeed.toDouble(), 0.0)
             } else if (isRideDescending && !isRideAscending) {
-                vec3 = vec3.add(0.0, -verticalSpeed.toDouble(), 0.0)
+                Vec3d = Vec3d.add(0.0, -verticalSpeed.toDouble(), 0.0)
             }
         }
 
-        return vec3
+        return Vec3d
     }
 
-    override fun getRiddenSpeed(player: Player): Float {
+    override fun getSaddledSpeed(player: PlayerEntity): Float {
         val speedModifier = if (config.speedStat.affectsSpeed) {
             val minSpeedStat = config.speedStat.minStatThreshold
             val maxSpeedStat = config.speedStat.maxStatThreshold
@@ -460,7 +447,7 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
         val mediumSpeed = 0.35F
         val mediumModifier = if (isFlying()) {
             (rideData?.airSpeedModifier ?: 1.0F) * config.general.globalAirSpeedModifier
-        } else if (isInWater || isInLava) {
+        } else if (isTouchingWater || isInLava) {
             // Adds a little speed to submerged Pokemon for better ride feel
             (rideData?.waterSpeedModifier
                 ?: 1.0F) * config.general.globalWaterSpeedModifier * if (isAbleToDive() && getIsSubmerged()) {
@@ -482,7 +469,7 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
 
         // Calculate final adjusted speed
         val baseSpeed =
-            getAttributeValue(Attributes.MOVEMENT_SPEED) * config.general.globalBaseSpeedModifier * (rideData?.baseSpeedModifier
+            getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED) * config.general.globalBaseSpeedModifier * (rideData?.baseSpeedModifier
                 ?: 1.0F)
         val adjustedSpeed = baseSpeed * mediumSpeed * mediumModifier * speedModifier * sprintModifier
 
@@ -495,22 +482,24 @@ class RideablePokemonEntity : PokemonEntity, PlayerRideable {
                 ).toFloat()
     }
 
-    override fun getFluidFallingAdjustedMovement(d: Double, bl: Boolean, vec3: Vec3): Vec3 {
-        return super.getFluidFallingAdjustedMovement(
-            if (isAbleToDive() && isUnderWater) {
+    override fun applyFluidMovingSpeed(d: Double, bl: Boolean, Vec3d: Vec3d): Vec3d {
+        return super.applyFluidMovingSpeed(
+            if (isAbleToDive() && isSubmergedInWater) {
                 0.0
             } else {
                 d
-            }, bl, vec3
+            }, bl, Vec3d
         )
     }
-
-    @Suppress("UNCHECKED_CAST")
-    override fun getAddEntityPacket(entityTrackerEntry: ServerEntity): Packet<ClientGamePacketListener> =
-        ClientboundCustomPayloadPacket(
-            SpawnRidePokemonPacket(
-                this,
-                ClientboundAddEntityPacket(this, entityTrackerEntry)
-            )
-        ) as Packet<ClientGamePacketListener>
 }
+
+//      Perhaps not needed?
+//    @Suppress("UNCHECKED_CAST")
+//    override fun onSpawnPacket(entityTrackerEntry: EntityTrackerEntry): Packet<ClientPlayPacketListener> =
+//        CustomPayloadS2CPacket(
+//            SpawnRidePokemonPacket(
+//                this,
+//                EntitySpawnS2CPacket(this, entityTrackerEntry)
+//            ) as PacketByteBuf
+//        ) as Packet<ClientPlayPacketListener>
+//}

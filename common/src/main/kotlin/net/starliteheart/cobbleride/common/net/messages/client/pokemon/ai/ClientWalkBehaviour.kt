@@ -1,16 +1,12 @@
 package net.starliteheart.cobbleride.common.net.messages.client.pokemon.ai
 
-import com.cobblemon.mod.common.api.molang.ExpressionLike
 import com.cobblemon.mod.common.pokemon.ai.WalkBehaviour
-import com.cobblemon.mod.common.util.asExpressionLike
-import com.cobblemon.mod.common.util.readString
-import com.cobblemon.mod.common.util.writeString
-import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.PacketByteBuf
 
 class ClientWalkBehaviour(
     val canWalk: Boolean = true,
     val avoidsLand: Boolean = false,
-    var walkSpeed: ExpressionLike = "0.35".asExpressionLike()
+    var walkSpeed: Float = 0.35F
 ) {
     constructor(walkBehaviour: WalkBehaviour) : this(
         walkBehaviour.canWalk,
@@ -18,17 +14,17 @@ class ClientWalkBehaviour(
         walkBehaviour.walkSpeed
     )
 
-    fun encode(buffer: RegistryFriendlyByteBuf) {
+    fun encode(buffer: PacketByteBuf) {
         buffer.writeBoolean(this.canWalk)
         buffer.writeBoolean(this.avoidsLand)
-        buffer.writeString(this.walkSpeed.getString())
+        buffer.writeString(this.walkSpeed.toString())
     }
 
     companion object {
-        fun decode(buffer: RegistryFriendlyByteBuf) = ClientWalkBehaviour(
+        fun decode(buffer: PacketByteBuf) = ClientWalkBehaviour(
             buffer.readBoolean(),
             buffer.readBoolean(),
-            buffer.readString().asExpressionLike()
+            buffer.readFloat()
         )
     }
 }

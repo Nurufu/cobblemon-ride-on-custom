@@ -1,10 +1,9 @@
 package net.starliteheart.cobbleride.common.net.messages.client.data
 
 import com.cobblemon.mod.common.net.messages.client.data.DataRegistrySyncPacket
-import com.cobblemon.mod.common.util.readIdentifier
-import com.cobblemon.mod.common.util.writeIdentifier
-import net.minecraft.network.RegistryFriendlyByteBuf
-import net.minecraft.resources.ResourceLocation
+import net.minecraft.network.PacketByteBuf
+import net.minecraft.registry.DynamicRegistryManager
+import net.minecraft.util.Identifier
 import net.starliteheart.cobbleride.common.CobbleRideMod
 import net.starliteheart.cobbleride.common.api.pokemon.RideablePokemonSpecies
 import net.starliteheart.cobbleride.common.pokemon.RideableSpecies
@@ -15,13 +14,13 @@ class RideableSpeciesRegistrySyncPacket(species: Collection<RideableSpecies>) :
     override val id = ID
 
     // Manually redeclared here, to bypass internal check from external module
-    private fun decodeBuffer(buffer: RegistryFriendlyByteBuf) {
+    private fun decodeBuffer(buffer: PacketByteBuf) {
         val size = buffer.readInt()
-        val newBuffer = RegistryFriendlyByteBuf(buffer.readBytes(size), buffer.registryAccess())
+        val newBuffer = PacketByteBuf(buffer.readBytes(size))
         this.buffer = newBuffer
     }
 
-    override fun encodeEntry(buffer: RegistryFriendlyByteBuf, entry: RideableSpecies) {
+    override fun encodeEntry(buffer: PacketByteBuf, entry: RideableSpecies) {
         try {
             buffer.writeIdentifier(entry.identifier)
             entry.encode(buffer)
@@ -30,7 +29,7 @@ class RideableSpeciesRegistrySyncPacket(species: Collection<RideableSpecies>) :
         }
     }
 
-    override fun decodeEntry(buffer: RegistryFriendlyByteBuf): RideableSpecies? {
+    override fun decodeEntry(buffer: PacketByteBuf): RideableSpecies? {
         val identifier = buffer.readIdentifier()
         val species = RideableSpecies()
         species.identifier = identifier
@@ -48,10 +47,10 @@ class RideableSpeciesRegistrySyncPacket(species: Collection<RideableSpecies>) :
     }
 
     companion object {
-        val ID: ResourceLocation = rideableResource("species_sync")
+        val ID: Identifier = rideableResource("species_sync")
 
         @JvmStatic
-        fun decode(buffer: RegistryFriendlyByteBuf): RideableSpeciesRegistrySyncPacket =
+        fun decode(buffer: PacketByteBuf): RideableSpeciesRegistrySyncPacket =
             RideableSpeciesRegistrySyncPacket(emptyList()).apply { decodeBuffer(buffer) }
     }
 }

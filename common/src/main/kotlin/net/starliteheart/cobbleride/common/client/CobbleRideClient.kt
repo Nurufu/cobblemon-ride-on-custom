@@ -7,7 +7,7 @@ import net.starliteheart.cobbleride.common.net.messages.server.pokemon.sync.GetR
 
 object CobbleRideClient {
     fun initialize() {
-        PlatformEvents.CLIENT_ENTITY_LOAD.subscribe {
+        PlatformEvents.RIGHT_CLICK_ENTITY.subscribe {
             if (it.entity is RideablePokemonEntity) {
                 GetRidePokemonPassengersPacket(it.entity.id).sendToServer()
                 GetRidePokemonBehaviourPacket(it.entity.id).sendToServer()

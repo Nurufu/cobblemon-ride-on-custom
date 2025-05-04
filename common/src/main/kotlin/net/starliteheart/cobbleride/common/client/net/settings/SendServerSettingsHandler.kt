@@ -1,12 +1,12 @@
 package net.starliteheart.cobbleride.common.client.net.settings
 
 import com.cobblemon.mod.common.api.net.ClientNetworkPacketHandler
-import net.minecraft.client.Minecraft
+import net.minecraft.client.MinecraftClient
 import net.starliteheart.cobbleride.common.client.settings.ServerSettings
 import net.starliteheart.cobbleride.common.net.messages.client.settings.SendServerSettingsPacket
 
 class SendServerSettingsHandler : ClientNetworkPacketHandler<SendServerSettingsPacket> {
-    override fun handle(packet: SendServerSettingsPacket, client: Minecraft) {
+    override fun handle(packet: SendServerSettingsPacket, client: MinecraftClient) {
         ServerSettings.general.globalBaseSpeedModifier = packet.globalBaseSpeedModifier
         ServerSettings.general.globalLandSpeedModifier = packet.globalLandSpeedModifier
         ServerSettings.general.globalWaterSpeedModifier = packet.globalWaterSpeedModifier

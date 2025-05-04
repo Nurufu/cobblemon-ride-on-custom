@@ -1,12 +1,12 @@
 package net.starliteheart.cobbleride.common.client
 
 import com.cobblemon.mod.common.api.gui.blitk
-import com.mojang.blaze3d.vertex.PoseStack
-import net.minecraft.resources.ResourceLocation
+import net.minecraft.client.util.math.MatrixStack
+import net.minecraft.util.Identifier
 
 fun blitRideIcon(
-    matrices: PoseStack,
-    texture: ResourceLocation,
+    matrices: MatrixStack,
+    texture: Identifier,
     x: Number,
     y: Number,
     width: Number,

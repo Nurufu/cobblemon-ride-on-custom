@@ -30,12 +30,12 @@ object CobbleRideMod {
         CobblemonDataProvider.register(RideablePokemonSpecies)
         PlatformEvents.CHANGE_DIMENSION.subscribe {
             if (it.player.vehicle is RideablePokemonEntity) {
-                it.player.removeVehicle()
+                it.player.dismountVehicle()
             }
         }
         PlatformEvents.SERVER_PLAYER_LOGOUT.subscribe {
             if (it.player.vehicle is RideablePokemonEntity) {
-                it.player.removeVehicle()
+                it.player.dismountVehicle()
             }
         }
         loadConfig()

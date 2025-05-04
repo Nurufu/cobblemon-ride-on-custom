@@ -1,28 +1,19 @@
 package net.starliteheart.cobbleride.common.util
 
-import com.cobblemon.mod.common.entity.npc.NPCEntity
 import com.cobblemon.mod.common.util.EntityTraceResult
 import com.cobblemon.mod.common.util.math.geometry.toDegrees
 import com.cobblemon.mod.common.util.math.geometry.toRadians
 import com.cobblemon.mod.common.util.traceEntityCollision
 import com.cobblemon.mod.common.util.traceFirstEntityCollision
-import net.minecraft.core.particles.SimpleParticleType
 import net.minecraft.entity.Entity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.particle.DefaultParticleType
-import net.minecraft.resources.ResourceLocation
-import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.world.ServerWorld
 import net.minecraft.util.Identifier
 import net.minecraft.util.math.Box
 import net.minecraft.util.math.Vec3d
 import net.minecraft.world.RaycastContext
-import net.minecraft.world.entity.Entity
-import net.minecraft.world.entity.player.Player
-import net.minecraft.world.level.ClipContext
-import net.minecraft.world.phys.AABB
-import net.minecraft.world.phys.HitResult
-import net.minecraft.world.phys.Vec3
+import net.minecraft.util.hit.HitResult
 import net.starliteheart.cobbleride.common.CobbleRideMod
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -77,7 +68,7 @@ fun <T : Entity> PlayerEntity.traceEntityCollisionAndReturnRider(
     collideBlock: RaycastContext.FluidHandling?
 ): T? {
     val entity = this.traceFirstEntityCollision(maxDistance, stepDistance, entityClass, ignoreEntity)
-    if (entity != null && entity.isVehicle && entity !is PlayerEntity && entity !is NPCEntity) {
+    if (entity != null && entity.hasVehicle() && entity !is PlayerEntity) {
         val list =
             if (this.vehicle != null) listOf(ignoreEntity, this.vehicle, entity) else listOf(ignoreEntity, entity)
         val nextClosest = traceEntityCollisionWithIgnoreList(
@@ -116,8 +107,8 @@ fun <T : Entity> PlayerEntity.traceEntityCollisionWithIgnoreList(
     collideBlock: RaycastContext.FluidHandling?
 ): EntityTraceResult<T>? {
     var step = stepDistance
-    val startPos = eyePosition
-    val direction = lookAngle
+    val startPos = eyePos
+    val direction = rotationVector
     val maxDistanceVector = Vec3d(1.0, 1.0, 1.0).multiply(maxDistance.toDouble())
 
     val entities = world.getOtherEntities(
@@ -126,7 +117,7 @@ fun <T : Entity> PlayerEntity.traceEntityCollisionWithIgnoreList(
     ) { entityClass.isInstance(it) }
 
     while (step <= maxDistance) {
-        val location = startPos.add(direction.scale(step.toDouble()))
+        val location = startPos.add(direction.multiply(step.toDouble()))
         step += stepDistance
 
         val collided = entities.filter {
@@ -134,16 +125,16 @@ fun <T : Entity> PlayerEntity.traceEntityCollisionWithIgnoreList(
         }
 
         if (collided.isNotEmpty()) {
-            if (collideBlock != null && world.clip(
-                    RaycastContext(
-                        startPos,
-                        location,
-                        RaycastContext.ShapeType.COLLIDER,
-                        collideBlock,
-                        this
-                    )
-                ).type == HitResult.Type.BLOCK
-            ) {
+            if (collideBlock != null && world.raycast(
+                RaycastContext(
+                    startPos,
+                    location,
+                    RaycastContext.ShapeType.COLLIDER,
+                    collideBlock,
+                    this
+                )
+            ).type == HitResult.Type.BLOCK
+            ){
                 // Collided with block on the way to the entity
                 return null
             }

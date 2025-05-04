@@ -3,16 +3,16 @@ package net.starliteheart.cobbleride.common.pokemon
 import com.cobblemon.mod.common.api.data.ClientDataSynchronizer
 import com.cobblemon.mod.common.api.data.ShowdownIdentifiable
 import com.cobblemon.mod.common.util.*
-import net.minecraft.network.RegistryFriendlyByteBuf
-import net.minecraft.resources.ResourceLocation
-import net.minecraft.world.phys.Vec3
+import net.minecraft.network.PacketByteBuf
+import net.minecraft.util.Identifier
+import net.minecraft.util.math.Vec3d
 import net.starliteheart.cobbleride.common.CobbleRideMod
 import java.util.*
 
 class RideableSpecies : ClientDataSynchronizer<RideableSpecies>, ShowdownIdentifiable {
     var name: String = "Bulbasaur"
     var enabled: Boolean = true
-    var offsets: EnumMap<RiderOffsetType, Vec3> = EnumMap(RiderOffsetType::class.java)
+    var offsets: EnumMap<RiderOffsetType, Vec3d> = EnumMap(RiderOffsetType::class.java)
     var shouldRiderSit: Boolean = true
     var baseSpeedModifier: Float = 1.0F
     var landSpeedModifier: Float = 1.0F
@@ -35,7 +35,7 @@ class RideableSpecies : ClientDataSynchronizer<RideableSpecies>, ShowdownIdentif
     }
 
     @Transient
-    lateinit var identifier: ResourceLocation
+    lateinit var identifier: Identifier
 
     fun initialize() {
         this.forms.forEach { it.initialize(this) }
@@ -46,11 +46,11 @@ class RideableSpecies : ClientDataSynchronizer<RideableSpecies>, ShowdownIdentif
 
     fun getForm(name: String): RideableFormData = forms.lastOrNull { it.name == name } ?: standardForm
 
-    override fun encode(buffer: RegistryFriendlyByteBuf) {
+    override fun encode(buffer: PacketByteBuf) {
         buffer.writeIdentifier(this.identifier)
         buffer.writeString(this.name)
         buffer.writeBoolean(this.enabled)
-        buffer.writeMap(this.offsets, { _, k -> buffer.writeEnumConstant(k) }, { _, v -> buffer.writeVec3(v) })
+        buffer.writeMap(this.offsets, { _, k -> buffer.writeEnumConstant(k) }, { _, v -> buffer.writeVec3d(v) })
         buffer.writeBoolean(this.shouldRiderSit)
         buffer.writeFloat(this.baseSpeedModifier)
         buffer.writeFloat(this.landSpeedModifier)
@@ -59,14 +59,14 @@ class RideableSpecies : ClientDataSynchronizer<RideableSpecies>, ShowdownIdentif
         buffer.writeCollection(this.forms) { _, form -> form.encode(buffer) }
     }
 
-    override fun decode(buffer: RegistryFriendlyByteBuf) {
+    override fun decode(buffer: PacketByteBuf) {
         this.identifier = buffer.readIdentifier()
         this.name = buffer.readString()
         this.enabled = buffer.readBoolean()
         this.offsets.clear()
         this.offsets += buffer.readMap(
             { _ -> buffer.readEnumConstant(RiderOffsetType::class.java) },
-            { _ -> buffer.readVec3() })
+            { _ -> buffer.readVec3d() })
         this.shouldRiderSit = buffer.readBoolean()
         this.baseSpeedModifier = buffer.readFloat()
         this.landSpeedModifier = buffer.readFloat()

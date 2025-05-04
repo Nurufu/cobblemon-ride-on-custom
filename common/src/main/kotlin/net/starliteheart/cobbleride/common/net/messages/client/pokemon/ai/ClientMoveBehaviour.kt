@@ -1,7 +1,7 @@
 package net.starliteheart.cobbleride.common.net.messages.client.pokemon.ai
 
 import com.cobblemon.mod.common.pokemon.ai.MoveBehaviour
-import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.PacketByteBuf
 
 class ClientMoveBehaviour(
     val walk: ClientWalkBehaviour = ClientWalkBehaviour(),
@@ -24,7 +24,7 @@ class ClientMoveBehaviour(
         moveBehaviour.looksAtEntities
     )
 
-    fun encode(buffer: RegistryFriendlyByteBuf) {
+    fun encode(buffer: PacketByteBuf) {
         walk.encode(buffer)
         swim.encode(buffer)
         fly.encode(buffer)
@@ -36,7 +36,7 @@ class ClientMoveBehaviour(
     }
 
     companion object {
-        fun decode(buffer: RegistryFriendlyByteBuf) = ClientMoveBehaviour(
+        fun decode(buffer: PacketByteBuf) = ClientMoveBehaviour(
             ClientWalkBehaviour.decode(buffer),
             ClientSwimBehaviour.decode(buffer),
             ClientFlyBehaviour.decode(buffer),

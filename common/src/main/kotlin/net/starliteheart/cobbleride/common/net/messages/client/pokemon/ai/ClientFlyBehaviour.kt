@@ -1,30 +1,27 @@
 package net.starliteheart.cobbleride.common.net.messages.client.pokemon.ai
 
-import com.cobblemon.mod.common.api.molang.ExpressionLike
 import com.cobblemon.mod.common.pokemon.ai.FlyBehaviour
 import com.cobblemon.mod.common.util.asExpressionLike
-import com.cobblemon.mod.common.util.readString
-import com.cobblemon.mod.common.util.writeString
-import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.PacketByteBuf
 
 class ClientFlyBehaviour(
     val canFly: Boolean = false,
-    val flySpeedHorizontal: ExpressionLike = "0.3".asExpressionLike()
+    val flySpeedHorizontal: Float = 0.3F
 ) {
     constructor(flyBehaviour: FlyBehaviour) : this(
         flyBehaviour.canFly,
         flyBehaviour.flySpeedHorizontal
     )
 
-    fun encode(buffer: RegistryFriendlyByteBuf) {
+    fun encode(buffer: PacketByteBuf) {
         buffer.writeBoolean(this.canFly)
-        buffer.writeString(this.flySpeedHorizontal.getString())
+        buffer.writeString(this.flySpeedHorizontal.toString())
     }
 
     companion object {
-        fun decode(buffer: RegistryFriendlyByteBuf) = ClientFlyBehaviour(
+        fun decode(buffer: PacketByteBuf) = ClientFlyBehaviour(
             buffer.readBoolean(),
-            buffer.readString().asExpressionLike()
+            buffer.readFloat()
         )
     }
 }

@@ -1,8 +1,9 @@
 package net.starliteheart.cobbleride.common.net.messages.server.pokemon.update
 
 import com.cobblemon.mod.common.api.net.NetworkPacket
-import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.PacketByteBuf
 import net.starliteheart.cobbleride.common.util.rideableResource
+import java.util.*
 
 class SetRidePokemonExhaustPacket(
     val pokemonID: Int,
@@ -10,14 +11,14 @@ class SetRidePokemonExhaustPacket(
 ) : NetworkPacket<SetRidePokemonExhaustPacket> {
     override val id = ID
 
-    override fun encode(buffer: RegistryFriendlyByteBuf) {
+    override fun encode(buffer: PacketByteBuf) {
         buffer.writeInt(pokemonID)
         buffer.writeBoolean(bl)
     }
 
     companion object {
         val ID = rideableResource("set_ride_state")
-        fun decode(buffer: RegistryFriendlyByteBuf) = SetRidePokemonExhaustPacket(
+        fun decode(buffer: PacketByteBuf) = SetRidePokemonExhaustPacket(
             buffer.readInt(), buffer.readBoolean()
         )
     }

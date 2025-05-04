@@ -1,10 +1,8 @@
 package net.starliteheart.cobbleride.common.net.messages.client.settings
 
 import com.cobblemon.mod.common.api.net.NetworkPacket
-import com.cobblemon.mod.common.util.readString
-import com.cobblemon.mod.common.util.writeString
-import net.minecraft.network.RegistryFriendlyByteBuf
-import net.minecraft.resources.ResourceLocation
+import net.minecraft.network.PacketByteBuf
+import net.minecraft.util.Identifier
 import net.starliteheart.cobbleride.common.CobbleRideMod
 import net.starliteheart.cobbleride.common.util.rideableResource
 
@@ -36,9 +34,9 @@ class SendServerSettingsPacket internal constructor(
     val exhaustionSpeed: Double,
     val exhaustionDuration: Double
 ) : NetworkPacket<SendServerSettingsPacket> {
-    override val id: ResourceLocation = ID
+    override val id: Identifier = ID
 
-    override fun encode(buffer: RegistryFriendlyByteBuf) {
+    override fun encode(buffer: PacketByteBuf) {
         buffer.writeDouble(CobbleRideMod.config.general.globalBaseSpeedModifier)
         buffer.writeDouble(CobbleRideMod.config.general.globalLandSpeedModifier)
         buffer.writeDouble(CobbleRideMod.config.general.globalWaterSpeedModifier)
@@ -73,7 +71,7 @@ class SendServerSettingsPacket internal constructor(
 
     companion object {
         val ID = rideableResource("server_settings")
-        fun decode(buffer: RegistryFriendlyByteBuf) = SendServerSettingsPacket(
+        fun decode(buffer: PacketByteBuf) = SendServerSettingsPacket(
             buffer.readDouble(),
             buffer.readDouble(),
             buffer.readDouble(),

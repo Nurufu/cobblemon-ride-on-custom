@@ -1,18 +1,14 @@
 package net.starliteheart.cobbleride.common.net.messages.client.pokemon.ai
 
-import com.cobblemon.mod.common.api.molang.ExpressionLike
 import com.cobblemon.mod.common.pokemon.ai.SwimBehaviour
-import com.cobblemon.mod.common.util.asExpressionLike
-import com.cobblemon.mod.common.util.readString
-import com.cobblemon.mod.common.util.writeString
-import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.network.PacketByteBuf
 
 class ClientSwimBehaviour(
     val avoidsWater: Boolean = false,
     val hurtByLava: Boolean = true,
     val canSwimInWater: Boolean = true,
     val canSwimInLava: Boolean = true,
-    val swimSpeed: ExpressionLike = "0.3".asExpressionLike(),
+    val swimSpeed: Float = 0.3F,
     val canBreatheUnderwater: Boolean = false,
     val canBreatheUnderlava: Boolean = false,
     val canWalkOnWater: Boolean = false,
@@ -30,12 +26,12 @@ class ClientSwimBehaviour(
         swimBehaviour.canWalkOnLava
     )
 
-    fun encode(buffer: RegistryFriendlyByteBuf) {
+    fun encode(buffer: PacketByteBuf) {
         buffer.writeBoolean(this.avoidsWater)
         buffer.writeBoolean(this.hurtByLava)
         buffer.writeBoolean(this.canSwimInWater)
         buffer.writeBoolean(this.canSwimInLava)
-        buffer.writeString(this.swimSpeed.getString())
+        buffer.writeString(this.swimSpeed.toString())
         buffer.writeBoolean(this.canBreatheUnderwater)
         buffer.writeBoolean(this.canBreatheUnderlava)
         buffer.writeBoolean(this.canWalkOnWater)
@@ -43,12 +39,12 @@ class ClientSwimBehaviour(
     }
 
     companion object {
-        fun decode(buffer: RegistryFriendlyByteBuf) = ClientSwimBehaviour(
+        fun decode(buffer: PacketByteBuf) = ClientSwimBehaviour(
             buffer.readBoolean(),
             buffer.readBoolean(),
             buffer.readBoolean(),
             buffer.readBoolean(),
-            buffer.readString().asExpressionLike(),
+            buffer.readFloat(),
             buffer.readBoolean(),
             buffer.readBoolean(),
             buffer.readBoolean(),
