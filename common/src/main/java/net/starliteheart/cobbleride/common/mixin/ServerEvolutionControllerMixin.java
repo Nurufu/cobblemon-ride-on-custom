@@ -22,10 +22,10 @@ public abstract class ServerEvolutionControllerMixin {
             cancellable = true
     )
     private void preventEvolvingIfMounted(Evolution evolution, CallbackInfo ci) {
-        Pokemon pokemon = ((ServerEvolutionController) (Object) this).pokemon();
-        if (pokemon.getEntity() instanceof RideablePokemonEntity mount && mount.isVehicle()) {
+        Pokemon pokemon = ((ServerEvolutionController) (Object) this).getPokemon();
+        if (pokemon.getEntity() instanceof RideablePokemonEntity mount && mount.hasPassengers()) {
             if (pokemon.getOwnerPlayer() != null) {
-                pokemon.getOwnerPlayer().sendSystemMessage(MiscUtilsKt.asTranslated("cobbleride.ui.mount.evolve", pokemon.getDisplayName()));
+                pokemon.getOwnerPlayer().sendMessage(MiscUtilsKt.asTranslated("cobbleride.ui.mount.evolve", pokemon.getDisplayName()));
             }
             ci.cancel();
         }

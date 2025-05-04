@@ -3,7 +3,7 @@ package net.starliteheart.cobbleride.common.mixin;
 import com.cobblemon.mod.common.battles.interpreter.instructions.SwitchInstruction;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.entity.player.PlayerEntity;
 import net.starliteheart.cobbleride.common.entity.pokemon.RideablePokemonEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -24,7 +24,7 @@ public abstract class SwitchInstructionMixin {
             )
     )
     private CompletableFuture<Pokemon> interruptRecallForRidePokemon(PokemonEntity pokemon) {
-        if (!(pokemon instanceof RideablePokemonEntity mount && mount.getOwner() instanceof Player player && player.getVehicle() == mount)) {
+        if (!(pokemon instanceof RideablePokemonEntity mount && mount.getOwner() instanceof PlayerEntity player && player.getVehicle() == mount)) {
             return pokemon.recallWithAnimation();
         }
         return null;

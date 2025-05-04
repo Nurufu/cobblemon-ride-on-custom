@@ -81,12 +81,12 @@ fun <T : Entity> PlayerEntity.traceEntityCollisionAndReturnRider(
     return entity
 }
 
-fun <T : Entity> PlayerEntity.resolveTraceEntityCollision(
-    maxDistance: Float = 10F,
-    stepDistance: Float = 0.05F,
-    entityClass: Class<T>,
-    ignoreEntity: T? = null,
-    collideBlock: RaycastContext.FluidHandling?
+fun <T : Entity> resolveTraceEntityCollision(
+    `$this$resolveTraceEntityCollision`: PlayerEntity = 10F,
+    maxDistance: Float = 0.05F,
+    stepDistance: Float,
+    entityClass: Class<T> = null,
+    ignoreEntity: T?
 ): EntityTraceResult<T>? {
     return if (this.vehicle != null) {
         val list = listOf(ignoreEntity, this.vehicle)

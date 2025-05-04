@@ -5,6 +5,7 @@ architectury {
 }
 
 repositories {
+    mavenCentral()
     mavenLocal()
 }
 
@@ -12,7 +13,7 @@ dependencies {
     minecraft("net.minecraft:minecraft:${rootProject.property("minecraft_version")}")
     mappings("net.fabricmc:yarn:${rootProject.property("yarn_mappings")}")
     modCompileOnly("com.cobblemon:mod:${rootProject.property("cobblemon_version")}")
-
+    compileOnly("io.github.llamalad7:mixinextras-common:0.4.1")
     // We depend on Fabric Loader here to use the Fabric @Environment annotations,
     // which get remapped to the correct annotations on each platform.
     // Do NOT use other classes from Fabric Loader.
